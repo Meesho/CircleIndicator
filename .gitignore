@@ -6,3 +6,5 @@
 /.idea/dictionaries
 .DS_Store
 /build
+.pre-commit-config.yaml
+trufflehog/
