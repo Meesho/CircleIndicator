@@ -163,7 +163,7 @@ public class CircleIndicator extends LinearLayout {
         mViewpager = viewPager;
         if (mViewpager != null && mViewpager.getAdapter() != null) {
             mLastPosition = -1;
-            createIndicators();
+            createIndicators(mViewpager.getAdapter().getCount(), mViewpager.getCurrentItem());
             mViewpager.removeOnPageChangeListener(mInternalPageChangeListener);
             mViewpager.addOnPageChangeListener(mInternalPageChangeListener);
             mInternalPageChangeListener.onPageSelected(mViewpager.getCurrentItem());
@@ -184,30 +184,7 @@ public class CircleIndicator extends LinearLayout {
                         return;
                     }
 
-                    if (mAnimatorIn.isRunning()) {
-                        mAnimatorIn.end();
-                        mAnimatorIn.cancel();
-                    }
-
-                    if (mAnimatorOut.isRunning()) {
-                        mAnimatorOut.end();
-                        mAnimatorOut.cancel();
-                    }
-
-                    View currentIndicator;
-                    if (mLastPosition >= 0 && (currentIndicator = getChildAt(mLastPosition)) != null) {
-                        currentIndicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
-                        mAnimatorIn.setTarget(currentIndicator);
-                        mAnimatorIn.start();
-                    }
-
-                    View selectedIndicator = getChildAt(position);
-                    if (selectedIndicator != null) {
-                        selectedIndicator.setBackgroundResource(mIndicatorBackgroundResId);
-                        mAnimatorOut.setTarget(selectedIndicator);
-                        mAnimatorOut.start();
-                    }
-                    mLastPosition = position;
+                    animatePageSelected(position);
                 }
 
                 @Override
@@ -246,7 +223,7 @@ public class CircleIndicator extends LinearLayout {
                 circleIndicator.mLastPosition = -1;
             }
 
-            circleIndicator.createIndicators();
+            circleIndicator.createIndicators(newCount, viewPager.getCurrentItem());
         }
     }
 
@@ -264,49 +241,83 @@ public class CircleIndicator extends LinearLayout {
         mViewpager.addOnPageChangeListener(onPageChangeListener);
     }
 
-    private void createIndicators() {
-        removeAllViews();
-        int count = mViewpager.getAdapter().getCount();
+    public void createIndicators(int count, int currentPosition) {
         if (count <= 0) {
+            removeAllViews();
+            mLastPosition = -1;
             return;
         }
-        int currentItem = mViewpager.getCurrentItem();
-        int orientation = getOrientation();
 
-        for (int i = 0; i < count; i++) {
-            if (currentItem == i) {
-                addIndicator(orientation, mIndicatorBackgroundResId, mImmediateAnimatorOut);
-            } else {
-                addIndicator(orientation, mIndicatorUnselectedBackgroundResId,
-                        mImmediateAnimatorIn);
+        int childViewsCount = getChildCount();
+        if (count < childViewsCount) {
+            removeViews(count, childViewsCount - count);
+        } else if (count > childViewsCount) {
+            int addCount = count - childViewsCount;
+            int orientation = getOrientation();
+            for (int i = 0; i < addCount; i++) {
+                addIndicator(orientation);
             }
         }
+
+        for (int i = 0; i < count; i++) {
+            View indicator = getChildAt(i);
+            if (currentPosition == i) {
+                indicator.setBackgroundResource(mIndicatorBackgroundResId);
+                mImmediateAnimatorOut.setTarget(indicator);
+                mImmediateAnimatorOut.start();
+            } else {
+                indicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
+                mImmediateAnimatorIn.setTarget(indicator);
+                mImmediateAnimatorIn.start();
+            }
+        }
+
+        mLastPosition = currentPosition;
     }
 
-    private void addIndicator(int orientation, @DrawableRes int backgroundDrawableId,
-                              Animator animator) {
-        if (animator.isRunning()) {
-            animator.end();
-            animator.cancel();
+    public void animatePageSelected(int position) {
+        if (mLastPosition == position) {
+            return;
         }
 
-        View Indicator = new View(getContext());
-        Indicator.setBackgroundResource(backgroundDrawableId);
-        addView(Indicator, mIndicatorWidth, mIndicatorHeight);
-        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) Indicator.getLayoutParams();
+        if (mAnimatorIn.isRunning()) {
+            mAnimatorIn.end();
+            mAnimatorIn.cancel();
+        }
 
+        if (mAnimatorOut.isRunning()) {
+            mAnimatorOut.end();
+            mAnimatorOut.cancel();
+        }
+
+        View currentIndicator;
+        if (mLastPosition >= 0 && (currentIndicator = getChildAt(mLastPosition)) != null) {
+            currentIndicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
+            mAnimatorIn.setTarget(currentIndicator);
+            mAnimatorIn.start();
+        }
+
+        View selectedIndicator = getChildAt(position);
+        if (selectedIndicator != null) {
+            selectedIndicator.setBackgroundResource(mIndicatorBackgroundResId);
+            mAnimatorOut.setTarget(selectedIndicator);
+            mAnimatorOut.start();
+        }
+        mLastPosition = position;
+    }
+
+    private void addIndicator(int orientation) {
+        View indicator = new View(getContext());
+        final LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(mIndicatorWidth, mIndicatorHeight);
         if (orientation == HORIZONTAL) {
-            lp.leftMargin = mIndicatorMargin;
-            lp.rightMargin = mIndicatorMargin;
+            params.leftMargin = mIndicatorMargin;
+            params.rightMargin = mIndicatorMargin;
         } else {
-            lp.topMargin = mIndicatorMargin;
-            lp.bottomMargin = mIndicatorMargin;
+            params.topMargin = mIndicatorMargin;
+            params.bottomMargin = mIndicatorMargin;
         }
-
-        Indicator.setLayoutParams(lp);
-
-        animator.setTarget(Indicator);
-        animator.start();
+        addView(indicator, params);
     }
 
     private static class ReverseInterpolator implements Interpolator {
