@@ -184,30 +184,7 @@ public class CircleIndicator extends LinearLayout {
                         return;
                     }
 
-                    if (mAnimatorIn.isRunning()) {
-                        mAnimatorIn.end();
-                        mAnimatorIn.cancel();
-                    }
-
-                    if (mAnimatorOut.isRunning()) {
-                        mAnimatorOut.end();
-                        mAnimatorOut.cancel();
-                    }
-
-                    View currentIndicator;
-                    if (mLastPosition >= 0 && (currentIndicator = getChildAt(mLastPosition)) != null) {
-                        currentIndicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
-                        mAnimatorIn.setTarget(currentIndicator);
-                        mAnimatorIn.start();
-                    }
-
-                    View selectedIndicator = getChildAt(position);
-                    if (selectedIndicator != null) {
-                        selectedIndicator.setBackgroundResource(mIndicatorBackgroundResId);
-                        mAnimatorOut.setTarget(selectedIndicator);
-                        mAnimatorOut.start();
-                    }
-                    mLastPosition = position;
+                    animatePageSelected(position);
                 }
 
                 @Override
@@ -264,36 +241,84 @@ public class CircleIndicator extends LinearLayout {
         mViewpager.addOnPageChangeListener(onPageChangeListener);
     }
 
-    private void createIndicators() {
-        removeAllViews();
-        int count = mViewpager.getAdapter().getCount();
-        if (count <= 0) {
+    public void animatePageSelected(int position) {
+        if (mLastPosition == position) {
             return;
         }
-        int currentItem = mViewpager.getCurrentItem();
-        int orientation = getOrientation();
 
+        if (mAnimatorIn.isRunning()) {
+            mAnimatorIn.end();
+            mAnimatorIn.cancel();
+        }
+
+        if (mAnimatorOut.isRunning()) {
+            mAnimatorOut.end();
+            mAnimatorOut.cancel();
+        }
+
+        View currentIndicator;
+        if (mLastPosition >= 0 && (currentIndicator = getChildAt(mLastPosition)) != null) {
+            currentIndicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
+            mAnimatorIn.setTarget(currentIndicator);
+            mAnimatorIn.start();
+        }
+
+        View selectedIndicator = getChildAt(position);
+        if (selectedIndicator != null) {
+            selectedIndicator.setBackgroundResource(mIndicatorBackgroundResId);
+            mAnimatorOut.setTarget(selectedIndicator);
+            mAnimatorOut.start();
+        }
+        mLastPosition = position;
+    }
+
+    private void createIndicators() {
+        createIndicators(mViewpager.getAdapter().getCount(), mViewpager.getCurrentItem());
+    }
+
+    public void createIndicators(int count, int currentPosition) {
+        if (mImmediateAnimatorOut.isRunning()) {
+            mImmediateAnimatorOut.end();
+            mImmediateAnimatorOut.cancel();
+        }
+
+        if (mImmediateAnimatorIn.isRunning()) {
+            mImmediateAnimatorIn.end();
+            mImmediateAnimatorIn.cancel();
+        }
+
+        int childViewCount = getChildCount();
+        if (count < childViewCount) {
+            removeViews(count, childViewCount - count);
+        } else if (count > childViewCount) {
+            int addCount = count - childViewCount;
+            int orientation = getOrientation();
+            for (int i = 0; i < addCount; i++) {
+                addIndicator(orientation);
+            }
+        }
+
+        View indicator;
         for (int i = 0; i < count; i++) {
-            if (currentItem == i) {
-                addIndicator(orientation, mIndicatorBackgroundResId, mImmediateAnimatorOut);
+            indicator = getChildAt(i);
+            if (currentPosition == i) {
+                indicator.setBackgroundResource(mIndicatorBackgroundResId);
+                mImmediateAnimatorOut.setTarget(indicator);
+                mImmediateAnimatorOut.start();
+                mImmediateAnimatorOut.end();
             } else {
-                addIndicator(orientation, mIndicatorUnselectedBackgroundResId,
-                        mImmediateAnimatorIn);
+                indicator.setBackgroundResource(mIndicatorUnselectedBackgroundResId);
+                mImmediateAnimatorIn.setTarget(indicator);
+                mImmediateAnimatorIn.start();
+                mImmediateAnimatorIn.end();
             }
         }
     }
 
-    private void addIndicator(int orientation, @DrawableRes int backgroundDrawableId,
-                              Animator animator) {
-        if (animator.isRunning()) {
-            animator.end();
-            animator.cancel();
-        }
-
-        View Indicator = new View(getContext());
-        Indicator.setBackgroundResource(backgroundDrawableId);
-        addView(Indicator, mIndicatorWidth, mIndicatorHeight);
-        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) Indicator.getLayoutParams();
+    private void addIndicator(int orientation) {
+        View indicator = new View(getContext());
+        addView(indicator, mIndicatorWidth, mIndicatorHeight);
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) indicator.getLayoutParams();
 
         if (orientation == HORIZONTAL) {
             lp.leftMargin = mIndicatorMargin;
@@ -303,10 +328,7 @@ public class CircleIndicator extends LinearLayout {
             lp.bottomMargin = mIndicatorMargin;
         }
 
-        Indicator.setLayoutParams(lp);
-
-        animator.setTarget(Indicator);
-        animator.start();
+        indicator.setLayoutParams(lp);
     }
 
     private static class ReverseInterpolator implements Interpolator {
