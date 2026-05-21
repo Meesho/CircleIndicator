@@ -7,33 +7,11 @@ Meesho fork of `ongakuer/CircleIndicator` plus the separately-vendored `imbryk/L
 
 Three Gradle modules in `settings.gradle`: `:circleindicator`, `:LoopingViewPager`, `:sample`. Only one ships.
 
-```
-┌──────────────────────────────────────────────────────┐
-│ :circleindicator         ─── PUBLISHED               │  → JFrog Artifactory
-│   • Java only, no DI, no convention plugin           │     com.meesho.android:circle-indicator:<tag-or-SNAPSHOT>
-│   • Applies com.android.library + jfrog              │
-│     artifactory + maven-publish                      │
-│   • Self-contained (no project() deps)               │
-└──────────────────────────────────────────────────────┘
+**`:circleindicator`** — the published library. Java only, no DI, no convention plugin. Applies `com.android.library` plus `com.jfrog.artifactory` + `maven-publish`. Self-contained (no `project()` deps). Publishes to JFrog Artifactory as **`com.meesho.android:circle-indicator:<tag-or-SNAPSHOT>`**.
 
-┌──────────────────────────────────────────────────────┐
-│ :LoopingViewPager        ─── NOT PUBLISHED           │
-│   • Vendored from imbryk/LoopingViewPager            │
-│     (Apache 2.0, Copyright 2013 Leszek Mzyk)         │
-│   • Java only; package com.imbryk.viewPager          │
-│   • Consumed only by :sample                         │
-└──────────────────────────────────────────────────────┘
+**`:LoopingViewPager`** — vendored from `imbryk/LoopingViewPager` (Apache 2.0, Copyright 2013 Leszek Mzyk). Java only; package `com.imbryk.viewPager`. **Not published** — consumed only by `:sample`.
 
-┌──────────────────────────────────────────────────────┐
-│ :sample                  ─── DEMO / REGRESSION APP   │
-│   • depends on :circleindicator + :LoopingViewPager  │
-│   • One fragment per feature (Default, ChangeColor,  │
-│     CustomAnimation, DynamicAdapter, ResetAdapter,   │
-│     LoopViewPager, SnackbarBehavior) — adding a      │
-│     library feature without a matching fragment      │
-│     leaves it without a manual regression case.      │
-└──────────────────────────────────────────────────────┘
-```
+**`:sample`** — demo / manual regression-test harness. Depends on both libraries via `project(':…')`. One fragment per library feature (Default, ChangeColor, CustomAnimation, DynamicAdapter, ResetAdapter, LoopViewPager, SnackbarBehavior); adding a library feature without a matching fragment leaves it without a manual regression case.
 
 The root `build.gradle` applies `com.jfrog.artifactory` and `maven-publish` to **every** subproject via `allprojects { … }`. Only `:circleindicator` declares a `publishing { publications { aar … } }` block, so it's the only artifact that actually publishes. Adding a similar block elsewhere starts publishing that module — be deliberate.
 
@@ -78,29 +56,6 @@ Maven coordinate: **`com.meesho.android:circle-indicator:<tag-or-SNAPSHOT>`**.
 - **NEVER** drop the `jcenter()` repository declaration in the root `build.gradle` without first proving every dependency still resolves — `legacy-support-core-ui:1.0.0` and other AGP-3.4.2-era artifacts may resolve via jcenter only. jcenter has been read-only / sunset since 2021; removing it has worked historically *because* the local Gradle cache is warm.
 - **NEVER** run `:circleindicator:artifactoryPublish` against the release repo from a working tree whose `versionName` resolves to `<branch>-SNAPSHOT` — `:circleindicator/build.gradle` picks `RELEASE_REPO_NAME` only when `git tag --points-at HEAD` matches `[0-9.]*[0-9]`. Tag first, then publish.
 - **NEVER** bump Android Gradle Plugin past 3.4.2 in this repo without an explicit upgrade plan — the publish block, jcenter dependency, and Java-toolchain-absent build script were all written against AGP 3.x. AGP ≥ 7 will reject the current `buildscript` / repository layout outright.
-
-## Release procedure
-
-`:circleindicator` releases by **git tag**, not by editing `build.gradle`:
-
-1. Land changes on `master`.
-2. `git tag <X.Y.Z>` on the commit to release (semver; the regex is `[0-9.]*[0-9]`).
-3. `git push origin <X.Y.Z>`.
-4. With `JFROG_ARTIFACTORY_URL`, `JFROG_ARTIFACTORY_USERNAME`, `JFROG_ARTIFACTORY_KEY`, `RELEASE_REPO_NAME`, `SNAPSHOT_REPO_NAME` in `~/.gradle/gradle.properties` (or passed via `-P`), run `./gradlew :circleindicator:artifactoryPublish`.
-
-The `versionName()` closure in `:circleindicator/build.gradle` resolves to the tag → publish routes to `RELEASE_REPO_NAME`. Without the tag, the closure resolves to `<branch>-SNAPSHOT` and publish routes to `SNAPSHOT_REPO_NAME`. The hard-coded `version = "2.1.3"` line above the closure is a fallback default; the closure overrides it at publish time.
-
-## Stack
-
-| Concern | Choice | Where enforced |
-|---|---|---|
-| Build | Android Gradle Plugin **3.4.2** | root `build.gradle` `buildscript.dependencies` |
-| Repositories | `google()` + `jcenter()` (sunset; cache-only) | root `build.gradle` `allprojects.repositories` |
-| Publish | `com.jfrog.artifactory` + `maven-publish` | root `allprojects` block; `:circleindicator` is the only publisher |
-| Versioning | Tag-driven via the `versionName()` closure | `:circleindicator/build.gradle` |
-| Secret scan | TruffleHog via `pre-commit` and `pre-push` | `.pre-commit-config.yaml` → `pre-commit-scripts/trufflehog-hook.sh` |
-| compileSdk / minSdk / targetSdk | 28 / 14 / 28 | each module's `build.gradle` |
-| Language | Java only (no Kotlin) | each module's `build.gradle` |
 
 ## Invariants
 
